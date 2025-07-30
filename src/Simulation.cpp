@@ -1,5 +1,6 @@
 #include "Simulator.h"
 #include "util_sim.h"
+#include <regex>
 
 
 /**Function*************************************************************
@@ -13,13 +14,28 @@
   SeeAlso     []
 
 ***********************************************************************/
-void Simulator::init_simulator(int nQubits)
+void Simulator::init_simulator(int nQubits, std::string basis_state = "")
 {
     n = nQubits; // set the number n here
     manager = Cudd_Init(n, n, CUDD_UNIQUE_SLOTS, CUDD_CACHE_SLOTS, 0);
     int *constants = new int[n];
-    for (int i = 0; i < n; i++)
-        constants[i] = 0; // TODO: costom initial state
+    if(basis_state == ""){
+        for (int i = 0; i < n; i++){
+            constants[i] = 0; // TODO: costom initial state
+        }
+    }
+    else{
+        int i = 0;
+        for(char c : basis_state){
+            if(c == '0'){
+                constants[i] = 0;
+            }
+            else if(c == '1'){
+                constants[i] = 1;
+            }
+            i++;
+        }
+    }
     measured_qubits_to_clbits = std::vector<std::vector<int>>(n, std::vector<int>(0));
     init_state(constants);
     delete[] constants;
@@ -38,7 +54,7 @@ void Simulator::init_simulator(int nQubits)
   SeeAlso     []
 
 ***********************************************************************/
-void Simulator::sim_qasm_file(std::string qasm)
+void Simulator::sim_qasm_file(std::string qasm, std::string basis_state)
 {
     std::string inStr;
     std::stringstream inFile_ss(qasm);
@@ -53,7 +69,7 @@ void Simulator::sim_qasm_file(std::string qasm)
             {
                 getline(inStr_ss, inStr, '[');
                 getline(inStr_ss, inStr, ']');
-                init_simulator(stoi(inStr));
+                init_simulator(stoi(inStr), basis_state);
             }
             else if (inStr == "creg")
             {
@@ -244,9 +260,9 @@ void Simulator::sim_qasm_file(std::string qasm)
   SeeAlso     []
 
 ***********************************************************************/
-void Simulator::sim_qasm(std::string qasm)
+void Simulator::sim_qasm(std::string qasm, std::string basis_state)
 {
-    sim_qasm_file(qasm); // simulate
+    sim_qasm_file(qasm, basis_state); // simulate
 
     if (sim_type == 0 && isMeasure == 0)
     {
@@ -340,4 +356,30 @@ void Simulator::print_results()
     run_output += (statevector != "null") ? "\"statevector\": " + statevector + " }" : " }";
     //return;
     std::cout << run_output << std::endl;
+}
+
+std::string Simulator::get_state_vector(){
+    return statevector;
+}
+
+void Simulator::clear(){
+    if (manager == nullptr) return;    // hasn't initialized yet; maybe due to lack of qasm file
+    
+    for (int i = 0; i < w; i++)
+        for (int j = 0; j < r; j++)
+            Cudd_RecursiveDeref(manager, All_Bdd[i][j]);
+    for (int i = 0; i < w; i++)
+        delete[] All_Bdd[i];
+    delete [] All_Bdd;
+    if (isMeasure == 1)
+        Cudd_RecursiveDeref(manager, bigBDD);
+    for (auto& it: defined_var) {
+        Cudd_RecursiveDeref(manager, it.second);
+    }
+    defined_var.clear();
+    measured_qubits_to_clbits.clear();
+    measure_outcome.clear();
+    Node_Table.clear();
+    state_count.clear();
+    Cudd_Quit(manager);
 }

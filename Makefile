@@ -10,6 +10,7 @@ CXX = g++
 all: 
 	cd cudd && $(MAKE)
 	$(CXX) src/*.cpp -o SliQSim $(CFLAGS) $(LFLAGS)
+	mv SliQSim ../src/
 
 .PHONY: clean
 

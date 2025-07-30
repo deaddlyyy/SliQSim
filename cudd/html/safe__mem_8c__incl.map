@@ -1,0 +1,12 @@
+<map id="util/safe_mem.c" name="util/safe_mem.c">
+<area shape="rect" id="node1" title="Interface routines to be placed between a program and the system memory allocator." alt="" coords="329,5,455,32"/>
+<area shape="rect" id="node2" href="$util_8h.html" title="Low&#45;level utilities." alt="" coords="365,80,419,107"/>
+<area shape="rect" id="node3" title=" " alt="" coords="5,155,91,181"/>
+<area shape="rect" id="node4" title=" " alt="" coords="115,155,189,181"/>
+<area shape="rect" id="node5" title=" " alt="" coords="213,155,288,181"/>
+<area shape="rect" id="node6" title=" " alt="" coords="312,155,379,181"/>
+<area shape="rect" id="node7" title=" " alt="" coords="403,155,474,181"/>
+<area shape="rect" id="node8" title=" " alt="" coords="498,155,569,181"/>
+<area shape="rect" id="node9" title=" " alt="" coords="593,155,663,181"/>
+<area shape="rect" id="node10" title=" " alt="" coords="687,155,774,181"/>
+</map>

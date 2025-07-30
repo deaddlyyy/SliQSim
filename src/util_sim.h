@@ -2,6 +2,7 @@
 #define _UTIL_SIM_H_
 
 #include <iostream>
+#include <thread>
 
 /* function */
 extern void full_adder_plus_1(int length, int *reg);

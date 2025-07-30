@@ -1333,13 +1333,13 @@ std::string Simulator::get_amplitude_string(int *assign)
     if ((final_re == 0)&&(final_im == 0))
         return "0";
     if (final_re == 0)
-        return std::to_string(final_im) + "i";
+        return std::to_string(final_im) + "j";
     if (final_im == 0)
         return std::to_string(final_re);
     if (final_im < 0)
-        return std::to_string(final_re) + std::to_string(final_im) + "i";
+        return std::to_string(final_re) + std::to_string(final_im) + "j";
         
-    return std::to_string(final_re) + "+" + std::to_string(final_im) + "i";
+    return std::to_string(final_re) + "+" + std::to_string(final_im) + "j";
 }
 
 /**Function*************************************************************

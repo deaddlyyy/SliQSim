@@ -1,6 +1,14 @@
 #include <boost/program_options.hpp>
 #include "Simulator.h"
 #include "util_sim.h"
+#include "threadpool.h"
+#include <memory>
+#include "stdin_decoder.h"
+#include <fstream>
+#include <mutex>
+
+std::ofstream debug_file("debug.txt");
+std::mutex debug_file_mutex;
 
 int main(int argc, char **argv)
 {
@@ -24,81 +32,96 @@ int main(int argc, char **argv)
     ("alloc",    po::value<bool>()->default_value(1),            "allocate new BDDs when overflow is detected.\n"
                                                                  "0: do not allocate new BDDs. This may lead to numerical errors.\n"
                                                                  "1: allocate new BDDs (default option).")
+    ("basis_state", po::value<std::string>()->default_value(""), "the basis state used in the simulation.\n")
     ;
     
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, description), vm);
     po::notify(vm);
 
-    if (vm.count("help") || !vm.count("sim_qasm") || argc == 1) 
-    {
+    if (vm.count("help")){
 	    std::cout << description << std::endl;
 	    return 1;
-	  }
-
-    int type = vm["type"].as<unsigned int>(), shots = vm["shots"].as<unsigned int>(), r = vm["r"].as<unsigned int>();
-    bool isReorder = vm["reorder"].as<bool>(), isAlloc = vm["alloc"].as<bool>();
-    bool isQuery = bool(vm.count("obs_file"));
-     
-    std::random_device rd;
-    unsigned int seed;
-    if (vm.count("seed")) 
-        seed = vm["seed"].as<unsigned int>();
-    else
-        seed = rd();
-
-    // start timer
-    struct timeval t1, t2;
-    double elapsedTime;
-    gettimeofday(&t1, NULL);
-
-    assert(shots > 0);
-    Simulator simulator(type, shots, seed, r, isReorder, isQuery, isAlloc);
-
-    // read in file into a string
-    std::stringstream strStream;
-    if (vm["sim_qasm"].as<std::string>() == "")
-    {
-        strStream << std::cin.rdbuf();    // read from std input; use Ctrl+D for ending
+	}
+    else if(argc == 1){
+        // persistent mode for evolution
+        // initialize a thread pool that takes jobs (circuits) from stdin and simulates them
+        // in parallel threads
+        int threads = std::thread::hardware_concurrency();
+        std::shared_ptr<ThreadPool> pool = std::make_shared<ThreadPool>(threads);
+        StdinDecoder decoder(pool);
+        decoder.loop();
     }
-    else
-    {
-        std::ifstream inFile;
-        inFile.open(vm["sim_qasm"].as<std::string>()); //open the input file
-        if (!inFile)
+    else{
+        int type = vm["type"].as<unsigned int>(), shots = vm["shots"].as<unsigned int>(), r = vm["r"].as<unsigned int>();
+        bool isReorder = vm["reorder"].as<bool>(), isAlloc = vm["alloc"].as<bool>();
+        bool isQuery = bool(vm.count("obs_file"));
+        
+        std::random_device rd;
+        unsigned int seed;
+        if (vm.count("seed")) 
+            seed = vm["seed"].as<unsigned int>();
+        else
+            seed = rd();
+
+        // start timer
+        struct timeval t1, t2;
+        double elapsedTime;
+        gettimeofday(&t1, NULL);
+
+        assert(shots > 0);
+        Simulator simulator(type, shots, seed, r, isReorder, isQuery, isAlloc);
+
+        // read in file into a string
+        std::stringstream strStream;
+        if (vm["sim_qasm"].as<std::string>() == "")
         {
-            std::cerr << "qasm file doesn't exist." << std::endl;
-            return -1;
+            strStream << std::cin.rdbuf();    // read from std input; use Ctrl+D for ending
         }
-        strStream << inFile.rdbuf(); //read the file
-    }
-    std::string inFile_str = strStream.str(); //str holds the content of the file
-    simulator.sim_qasm(inFile_str);
-    
-    if (vm.count("obs_file")) 
-    {
-        std::ifstream inFile;
-        inFile.open(vm["obs_file"].as<std::string>());
-        if (!inFile)
+        else
         {
-            std::cerr << "self-defined meaasurement operation file doesn't exist." << std::endl;
-            return -1;
+            std::ifstream inFile;
+            inFile.open(vm["sim_qasm"].as<std::string>()); //open the input file
+            if (!inFile)
+            {
+                std::lock_guard<std::mutex> lock(debug_file_mutex);
+                debug_file << "qasm file doesn't exist." << std::endl;
+                return -1;
+            }
+            strStream << inFile.rdbuf(); //read the file
         }
-        strStream = std::stringstream();
-        strStream << inFile.rdbuf();
-        std::string inFile_str = strStream.str();  
-        simulator.measurement_obs(inFile_str);
+        std::string inFile_str = strStream.str(); //str holds the content of the file
+        simulator.sim_qasm(inFile_str, vm["basis_state"].as<std::string>());
+        
+        if (vm.count("obs_file")) 
+        {
+            std::ifstream inFile;
+            inFile.open(vm["obs_file"].as<std::string>());
+            if (!inFile)
+            {
+                std::lock_guard<std::mutex> lock(debug_file_mutex);
+                debug_file << "self-defined meaasurement operation file doesn't exist." << std::endl;
+                return -1;
+            }
+            strStream = std::stringstream();
+            strStream << inFile.rdbuf();
+            std::string inFile_str = strStream.str();  
+            simulator.measurement_obs(inFile_str);
+        }
+
+        //end timer
+        gettimeofday(&t2, NULL);
+        elapsedTime = (t2.tv_sec - t1.tv_sec) * 1000.0;
+        elapsedTime += (t2.tv_usec - t1.tv_usec) / 1000.0;
+
+        double runtime = elapsedTime / 1000;
+        size_t memPeak = getPeakRSS();
+        if (vm.count("print_info"))
+        {
+            std::lock_guard<std::mutex> lock(debug_file_mutex);
+            simulator.print_info(runtime, memPeak);
+        }
+
+        return 0;
     }
-
-    //end timer
-    gettimeofday(&t2, NULL);
-    elapsedTime = (t2.tv_sec - t1.tv_sec) * 1000.0;
-    elapsedTime += (t2.tv_usec - t1.tv_usec) / 1000.0;
-
-    double runtime = elapsedTime / 1000;
-    size_t memPeak = getPeakRSS();
-    if (vm.count("print_info"))
-        simulator.print_info(runtime, memPeak);
-
-    return 0;
 }

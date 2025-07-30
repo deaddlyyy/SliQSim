@@ -18,9 +18,13 @@
 #include <cmath>
 #include <vector>
 #include <gmpxx.h>
+#include <mutex>
 #include "../cudd/cudd/cudd.h"
 #include "../cudd/cudd/cuddInt.h"
 #include "../cudd/util/util.h"
+
+extern std::ofstream debug_file;
+extern std::mutex debug_file_mutex;
 
 #define KW_ASSIGN     "assign"
 #define KW_DIST       "dist"
@@ -82,11 +86,12 @@ public:
     void getStatevector();
 
     /* simulation */
-    void init_simulator(int n);
-    void sim_qasm_file(std::string qasm);
-    void sim_qasm(std::string qasm);
+    void init_simulator(int n, std::string basis_state);
+    void sim_qasm_file(std::string qasm, std::string basis_state);
+    void sim_qasm(std::string qasm, std::string basis_state);
     void print_results();
-
+    std::string get_state_vector();
+    void clear();
     /* misc */
     void reorder();
     void decode_entries();
@@ -153,29 +158,6 @@ private:
     DdNode* node_equiv(std::vector<DdNode*>& int_1, std::vector<DdNode*>& int_2);
     DdNode* node_larger(std::vector<DdNode*>& int_1, std::vector<DdNode*>& int_2);
     DdNode* func2node(std::vector<std::string>& func);
-
-    // Clean up Simulator
-    void clear() {
-        if (!manager) return;    // hasn't initialized yet; maybe due to lack of qasm file
-        
-        for (int i = 0; i < w; i++)
-            for (int j = 0; j < r; j++)
-                Cudd_RecursiveDeref(manager, All_Bdd[i][j]);
-        for (int i = 0; i < w; i++)
-            delete[] All_Bdd[i];
-        delete [] All_Bdd;
-        if (isMeasure == 1)
-            Cudd_RecursiveDeref(manager, bigBDD);
-        for (auto& it: defined_var) {
-            Cudd_RecursiveDeref(manager, it.second);
-        }
-        defined_var.clear();
-        measured_qubits_to_clbits.clear();
-        measure_outcome.clear();
-        Node_Table.clear();
-        state_count.clear();
-        Cudd_Quit(manager);
-    };
 };
 
 #endif
