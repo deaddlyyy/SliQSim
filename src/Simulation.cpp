@@ -18,10 +18,12 @@ void Simulator::init_simulator(int nQubits, std::string basis_state = "")
 {
     n = nQubits; // set the number n here
     manager = Cudd_Init(n, n, CUDD_UNIQUE_SLOTS, CUDD_CACHE_SLOTS, 0);
+    bool superposition = false;
+    bool minus = false;
     int *constants = new int[n];
     if(basis_state == ""){
         for (int i = 0; i < n; i++){
-            constants[i] = 0; // TODO: costom initial state
+            constants[i] = 0;
         }
     }
     else{
@@ -33,12 +35,29 @@ void Simulator::init_simulator(int nQubits, std::string basis_state = "")
             else if(c == '1'){
                 constants[i] = 1;
             }
+            else if(c == '+'){
+                constants[i] = 0;
+                superposition = true;
+            }
+            else if(c == '-'){
+                constants[i] = 1;
+                superposition = true;
+                minus = true;
+            }
             i++;
         }
     }
     measured_qubits_to_clbits = std::vector<std::vector<int>>(n, std::vector<int>(0));
     init_state(constants);
     delete[] constants;
+
+    if(superposition){
+        // to create superposition, apply hadamard to the non-ancilla qubit
+        // to get state |0^n-1> * |+> (or |->)
+        Hadamard(n-1);
+        getStatevector();
+        debug_file << statevector << std::endl;
+    }
     if (isReorder) Cudd_AutodynEnable(manager, CUDD_REORDER_SYMM_SIFT);
 }
 

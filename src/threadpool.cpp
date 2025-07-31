@@ -45,8 +45,8 @@ ThreadPool::ThreadPool(int number_of_threads){
                     return;
                 }
                 else{
-                    std::pair<std::string, std::string> statevectors = this->sim_evo(job.get_file());
-                    this->print_result(Job(statevectors.first, statevectors.second, job.get_id()));
+                    std::tuple<std::string, std::string, std::string, std::string> statevectors = this->sim_evo(job.get_file());
+                    this->print_result(Job(std::get<0>(statevectors), std::get<1>(statevectors), std::get<2>(statevectors), std::get<3>(statevectors), job.get_id()));
                 }
             }
         });
@@ -59,7 +59,7 @@ void ThreadPool::enqueue(Job job){
     this->cv.notify_one();
 }
 
-std::pair<std::string, std::string> ThreadPool::sim_evo(std::string qasm){
+std::tuple<std::string, std::string, std::string, std::string> ThreadPool::sim_evo(std::string qasm){
     int shots = 1;
     int type = 1;
     int r = 32;
@@ -67,22 +67,36 @@ std::pair<std::string, std::string> ThreadPool::sim_evo(std::string qasm){
     int seed = rd();
     Simulator simulator_0(type, shots, seed, r, false, false, false);
     Simulator simulator_1(type, shots, seed, r, false, false, false);
+    Simulator simulator_plus(type, shots, seed, r, false, false, false);
+    Simulator simulator_minus(type, shots, seed, r, false, false, false);
     int qubits = this->get_qubits(qasm);
     std::string basis_state_0 = "";
     std::string basis_state_1 = "";
+    std::string basis_state_plus = "";
+    std::string basis_state_minus = "";
     for(int i = 0; i < qubits-1; i++){
         basis_state_0 += "0";
         basis_state_1 += "0";
+        basis_state_plus += "0";
+        basis_state_minus += "0";
     }
     basis_state_0 += "0";
     basis_state_1 += "1";
+    basis_state_plus += "+";
+    basis_state_minus += "-";
     simulator_0.sim_qasm_file(qasm, basis_state_0);
     simulator_0.getStatevector();
     std::string statevector_0 = simulator_0.get_state_vector();
     simulator_1.sim_qasm_file(qasm, basis_state_1);
     simulator_1.getStatevector();
     std::string statevector_1 = simulator_1.get_state_vector();
-    return std::make_pair(statevector_0, statevector_1);
+    simulator_plus.sim_qasm_file(qasm, basis_state_plus);
+    simulator_plus.getStatevector();
+    std::string statevector_plus = simulator_plus.get_state_vector();
+    simulator_minus.sim_qasm_file(qasm, basis_state_minus);
+    simulator_minus.getStatevector();
+    std::string statevector_minus = simulator_minus.get_state_vector();
+    return std::make_tuple(statevector_0, statevector_1, statevector_plus, statevector_minus);
 }
 
 int ThreadPool::get_qubits(std::string qasm){
@@ -106,14 +120,22 @@ Job::Job(std::string qasm_file, int genome_id){
     this->genome_id = genome_id;
 }
 
-Job::Job(std::string statevector_0, std::string statevector_1, int genome_id){
+Job::Job(std::string statevector_0, std::string statevector_1, std::string statevector_plus, std::string statevector_minus, int genome_id){
     this->statevector_0 = statevector_0;
-    this->statevector_1 = statevector_1;
+    this->statevector_1 = statevector_1;    
+    this->statevector_plus = statevector_plus;
+    this->statevector_minus = statevector_minus;
     this->genome_id = genome_id;
 }
 
 std::string Job::to_xml(){
-    return "<xml><id>" + std::to_string(this->genome_id) + "</id><statevector_0>" + this->statevector_0 + "</statevector_0><statevector_1>" + this->statevector_1 + "</statevector_1></xml>";
+    std::string xml = "<xml><id>" + std::to_string(this->genome_id) + "</id>";
+    xml += "<statevector_0>" + this->statevector_0 + "</statevector_0>";
+    xml += "<statevector_1>" + this->statevector_1 + "</statevector_1>";
+    xml += "<statevector_plus>" + this->statevector_plus + "</statevector_plus>";
+    xml += "<statevector_minus>" + this->statevector_minus + "</statevector_minus>";
+    xml += "</xml>";
+    return xml;
 }
 
 void Job::print(){

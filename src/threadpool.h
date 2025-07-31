@@ -12,6 +12,7 @@
 #include <atomic>
 #include <condition_variable>
 #include <fstream>
+#include <tuple>
 
 extern std::ofstream debug_file;
 extern std::mutex debug_file_mutex;
@@ -19,7 +20,7 @@ extern std::mutex debug_file_mutex;
 class Job{
     public:
         Job(std::string qasm_file, int genome_id);
-        Job(std::string statevector_0, std::string statevector_1, int genome_id);
+        Job(std::string statevector_0, std::string statevector_1, std::string statevector_plus, std::string statevector_minus, int genome_id);
         std::string to_xml();
         void print();
         std::string get_file();
@@ -30,6 +31,8 @@ class Job{
         int genome_id;
         std::string statevector_0;
         std::string statevector_1;
+        std::string statevector_plus;
+        std::string statevector_minus;
 };
 
 class ThreadPool{
@@ -42,7 +45,7 @@ class ThreadPool{
 
     private:
         int get_qubits(std::string qasm);
-        std::pair<std::string, std::string> sim_evo(std::string qasm);
+        std::tuple<std::string, std::string, std::string, std::string> sim_evo(std::string qasm);
 
         std::vector<std::thread> workers;
         std::queue<Job> jobs;
