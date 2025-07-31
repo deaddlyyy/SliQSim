@@ -68,12 +68,14 @@ std::pair<std::string, std::string> ThreadPool::sim_evo(std::string qasm){
     Simulator simulator_0(type, shots, seed, r, false, false, false);
     Simulator simulator_1(type, shots, seed, r, false, false, false);
     int qubits = this->get_qubits(qasm);
-    std::string basis_state_0 = "0";
-    std::string basis_state_1 = "1";
+    std::string basis_state_0 = "";
+    std::string basis_state_1 = "";
     for(int i = 0; i < qubits-1; i++){
         basis_state_0 += "0";
         basis_state_1 += "0";
     }
+    basis_state_0 += "0";
+    basis_state_1 += "1";
     simulator_0.sim_qasm_file(qasm, basis_state_0);
     simulator_0.getStatevector();
     std::string statevector_0 = simulator_0.get_state_vector();
